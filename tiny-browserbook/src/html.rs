@@ -56,6 +56,16 @@ where
     between(char('<'), char('>'), open_tag_content)
 }
 
+fn close_tag<Input>() -> impl Parser<Input, Output = String>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    let close_tag_name = many1::<String, _, _>(letter());
+    let close_tag_content = (char('/'), close_tag_name).map(|v| v.1);
+    between(char('<'), char('>'), close_tag_content)
+}
+
 #[cfg(test)]
 mod tests {
     use combine::EasyParser;
@@ -122,5 +132,11 @@ mod tests {
     #[test]
     fn test_parse_open_tag_invalid() {
         assert!(open_tag().easy_parse("<p id>").is_err());
+    }
+
+    #[test]
+    fn test_parse_close_tag() {
+        let result = close_tag().parse("</p>");
+        assert_eq!(result, Ok(("p".to_string(), "")));
     }
 }
