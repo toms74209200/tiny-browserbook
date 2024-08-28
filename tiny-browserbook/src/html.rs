@@ -1,6 +1,9 @@
 use crate::dom::AttrMap;
+use crate::dom::Element;
+use crate::dom::Node;
 use combine::between;
 use combine::error::ParseError;
+use combine::error::StreamError;
 use combine::many;
 use combine::parser::char::char;
 use combine::parser::char::letter;
@@ -9,6 +12,26 @@ use combine::parser::char::space;
 use combine::satisfy;
 use combine::sep_by;
 use combine::{many1, Parser, Stream};
+
+fn element<Input>() -> impl Parser<Input, Output = Box<Node>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    (open_tag(), close_tag()).and_then(|((open_tag_name, attributes), close_tag_name)| {
+        if open_tag_name == close_tag_name {
+            Ok(Element::new(open_tag_name, attributes, vec![]))
+        } else {
+            Err(<Input::Error as combine::error::ParseError<
+                char,
+                Input::Range,
+                Input::Position,
+            >>::StreamError::message_static_message(
+                "tag name of open tag and close tag mismatched",
+            ))
+        }
+    })
+}
 
 fn attribute<Input>() -> impl Parser<Input, Output = (String, String)>
 where
@@ -69,6 +92,8 @@ where
 #[cfg(test)]
 mod tests {
     use combine::EasyParser;
+
+    use crate::dom::Element;
 
     use super::*;
 
@@ -138,5 +163,13 @@ mod tests {
     fn test_parse_close_tag() {
         let result = close_tag().parse("</p>");
         assert_eq!(result, Ok(("p".to_string(), "")));
+    }
+
+    #[test]
+    fn test_parse_element_is_empty() {
+        assert_eq!(
+            element().parse("<p></p>"),
+            Ok((Element::new("p".to_string(), AttrMap::new(), vec![]), ""))
+        );
     }
 }
