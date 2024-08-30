@@ -1,6 +1,7 @@
 use crate::dom::AttrMap;
 use crate::dom::Element;
 use crate::dom::Node;
+use crate::dom::Text;
 use combine::between;
 use combine::error::ParseError;
 use combine::error::StreamError;
@@ -12,6 +13,14 @@ use combine::parser::char::space;
 use combine::satisfy;
 use combine::sep_by;
 use combine::{many1, Parser, Stream};
+
+fn text<Input>() -> impl Parser<Input, Output = Box<Node>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    many1(satisfy(|c: char| c != '<')).map(|t| Text::new(t))
+}
 
 fn element<Input>() -> impl Parser<Input, Output = Box<Node>>
 where
@@ -93,8 +102,6 @@ where
 mod tests {
     use combine::EasyParser;
 
-    use crate::dom::Element;
-
     use super::*;
 
     #[test]
@@ -170,6 +177,22 @@ mod tests {
         assert_eq!(
             element().parse("<p></p>"),
             Ok((Element::new("p".to_string(), AttrMap::new(), vec![]), ""))
+        );
+    }
+
+    #[test]
+    fn test_parse_text() {
+        assert_eq!(
+            text().parse("hello world"),
+            Ok((Text::new("hello world".to_string()), ""))
+        );
+    }
+
+    #[test]
+    fn test_parse_text_with_tag() {
+        assert_eq!(
+            text().parse("hello world<"),
+            Ok((Text::new("hello world".to_string()), "<"))
         );
     }
 }
