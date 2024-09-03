@@ -2,10 +2,13 @@ use crate::dom::AttrMap;
 use crate::dom::Element;
 use crate::dom::Node;
 use crate::dom::Text;
+use combine::attempt;
 use combine::between;
+use combine::choice;
 use combine::error::ParseError;
 use combine::error::StreamError;
 use combine::many;
+use combine::parser;
 use combine::parser::char::char;
 use combine::parser::char::letter;
 use combine::parser::char::newline;
@@ -13,6 +16,14 @@ use combine::parser::char::space;
 use combine::satisfy;
 use combine::sep_by;
 use combine::{many1, Parser, Stream};
+
+fn nodes_<Input>() -> impl Parser<Input, Output = Vec<Box<Node>>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    attempt(many(choice((attempt(element()), attempt(text())))))
+}
 
 fn text<Input>() -> impl Parser<Input, Output = Box<Node>>
 where
@@ -27,19 +38,21 @@ where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    (open_tag(), close_tag()).and_then(|((open_tag_name, attributes), close_tag_name)| {
-        if open_tag_name == close_tag_name {
-            Ok(Element::new(open_tag_name, attributes, vec![]))
-        } else {
-            Err(<Input::Error as combine::error::ParseError<
-                char,
-                Input::Range,
-                Input::Position,
-            >>::StreamError::message_static_message(
-                "tag name of open tag and close tag mismatched",
-            ))
-        }
-    })
+    (open_tag(), nodes(), close_tag()).and_then(
+        |((open_tag_name, attributes), children, close_tag_name)| {
+            if open_tag_name == close_tag_name {
+                Ok(Element::new(open_tag_name, attributes, children))
+            } else {
+                Err(<Input::Error as combine::error::ParseError<
+                    char,
+                    Input::Range,
+                    Input::Position,
+                >>::StreamError::message_static_message(
+                    "tag name of open tag and close tag mismatched",
+                ))
+            }
+        },
+    )
 }
 
 fn attribute<Input>() -> impl Parser<Input, Output = (String, String)>
@@ -71,6 +84,14 @@ where
         many::<String, _, _>(space().or(newline())),
     )
     .map(|attrs: Vec<(String, String)>| attrs.into_iter().collect::<AttrMap>())
+}
+
+parser! {
+    fn nodes[Input]()(Input) -> Vec<Box<Node>>
+    where [Input: Stream<Token = char>]
+    {
+        nodes_()
+    }
 }
 
 fn open_tag<Input>() -> impl Parser<Input, Output = (String, AttrMap)>
@@ -177,6 +198,21 @@ mod tests {
         assert_eq!(
             element().parse("<p></p>"),
             Ok((Element::new("p".to_string(), AttrMap::new(), vec![]), ""))
+        );
+    }
+
+    #[test]
+    fn test_parse_element_has_value() {
+        assert_eq!(
+            element().parse("<p>hello world</p>"),
+            Ok((
+                Element::new(
+                    "p".to_string(),
+                    AttrMap::new(),
+                    vec![Text::new("hello world".to_string())]
+                ),
+                ""
+            ))
         );
     }
 
