@@ -1,2 +1,1 @@
-mod dom;
 mod html;
