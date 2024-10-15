@@ -56,6 +56,14 @@ where
     many::<String, _, _>(space().or(newline()))
 }
 
+fn rules<Input>() -> impl Parser<Input, Output = Vec<Rule>>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    (whitespaces(), many(rule().skip(whitespaces()))).map(|(_, rules)| rules)
+}
+
 fn rule<Input>() -> impl Parser<Input, Output = Rule>
 where
     Input: Stream<Token = char>,
@@ -168,6 +176,45 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_rules() {
+        assert_eq!(
+            rules().parse("test [foo=bar] { aa: bb; cc: dd; } rule { ee: dd; }"),
+            Ok((
+                vec![
+                    Rule {
+                        selectors: vec![SimpleSelector::AttributeSelector {
+                            tag_name: "test".to_string(),
+                            op: AttributeSelectorOp::Eq,
+                            attribute: "foo".to_string(),
+                            value: "bar".to_string()
+                        }],
+                        declarations: vec![
+                            Declaration {
+                                name: "aa".to_string(),
+                                value: CSSValue::Keyword("bb".to_string())
+                            },
+                            Declaration {
+                                name: "cc".to_string(),
+                                value: CSSValue::Keyword("dd".to_string())
+                            }
+                        ]
+                    },
+                    Rule {
+                        selectors: vec![SimpleSelector::TypeSelector {
+                            tag_name: "rule".to_string()
+                        }],
+                        declarations: vec![Declaration {
+                            name: "ee".to_string(),
+                            value: CSSValue::Keyword("dd".to_string())
+                        }]
+                    }
+                ],
+                ""
+            ))
+        );
+    }
 
     #[test]
     fn test_rule() {
