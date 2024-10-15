@@ -1,2 +1,2 @@
-mod css;
-mod html;
+pub mod css;
+pub mod html;
