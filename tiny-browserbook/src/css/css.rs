@@ -7,6 +7,17 @@ use combine::{
 };
 
 #[derive(Debug, PartialEq)]
+pub struct Stylesheet {
+    pub rules: Vec<Rule>,
+}
+
+impl Stylesheet {
+    pub fn new(rules: Vec<Rule>) -> Self {
+        Stylesheet { rules }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Declaration {
     pub name: String,
     pub value: CSSValue,
@@ -46,6 +57,29 @@ pub enum SimpleSelector {
 pub enum AttributeSelectorOp {
     Eq,
     Contain,
+}
+
+/// Parse CSS stylesheet
+/// # Example
+/// ```
+/// use tiny_browserbook::css::css::parse;
+/// let css = r#"
+/// test [foo=bar] {
+///   aa: bb;
+///   cc: dd;
+/// }
+/// rule {
+///   ee: dd;
+/// }
+/// "#;
+/// let result = parse(css);
+/// assert_eq!(result.rules.len(), 2);
+/// ```
+pub fn parse(raw: &str) -> Stylesheet {
+    rules()
+        .parse(raw)
+        .map(|(rules, _)| Stylesheet::new(rules))
+        .unwrap()
 }
 
 fn whitespaces<Input>() -> impl Parser<Input, Output = String>
