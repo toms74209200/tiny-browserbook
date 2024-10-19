@@ -6,6 +6,8 @@ use combine::{
     sep_by, sep_end_by, ParseError, Parser, Stream,
 };
 
+use crate::html::dom::Node;
+
 #[derive(Debug, PartialEq)]
 pub struct Stylesheet {
     pub rules: Vec<Rule>,
@@ -34,6 +36,12 @@ pub struct Rule {
     pub declarations: Vec<Declaration>,
 }
 
+impl Rule {
+    pub fn matches(&self, n: &Box<Node>) -> bool {
+        self.selectors.iter().any(|s| s.matches(n))
+    }
+}
+
 pub type Selector = SimpleSelector;
 
 #[derive(Debug, PartialEq)]
@@ -51,6 +59,15 @@ pub enum SimpleSelector {
     ClassSelector {
         class_name: String,
     },
+}
+
+impl SimpleSelector {
+    pub fn matches(&self, n: &Box<Node>) -> bool {
+        match self {
+            SimpleSelector::UniversalSelector => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -209,6 +226,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::html::dom::Element;
+
     use super::*;
 
     #[test]
@@ -413,5 +432,21 @@ mod tests {
                 ""
             ))
         );
+    }
+
+    #[test]
+    fn test_universal_selector_behaviour() {
+        let e = &Element::new(
+            "p".to_string(),
+            [
+                ("id".to_string(), "test".to_string()),
+                ("class".to_string(), "testclass".to_string()),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
+            vec![],
+        );
+        assert_eq!(SimpleSelector::UniversalSelector.matches(e), true);
     }
 }
