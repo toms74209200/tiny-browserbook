@@ -6,7 +6,7 @@ use combine::{
     sep_by, sep_end_by, ParseError, Parser, Stream,
 };
 
-use crate::html::dom::Node;
+use crate::html::dom::{Node, NodeType};
 
 #[derive(Debug, PartialEq)]
 pub struct Stylesheet {
@@ -65,6 +65,10 @@ impl SimpleSelector {
     pub fn matches(&self, n: &Box<Node>) -> bool {
         match self {
             SimpleSelector::UniversalSelector => true,
+            SimpleSelector::TypeSelector { tag_name } => match n.node_type {
+                NodeType::Element(ref e) => e.tag_name.as_str() == tag_name,
+                _ => false,
+            },
             _ => false,
         }
     }
@@ -448,5 +452,34 @@ mod tests {
             vec![],
         );
         assert_eq!(SimpleSelector::UniversalSelector.matches(e), true);
+    }
+
+    #[test]
+    fn test_universal_selector_behaviour_with_tag() {
+        let e = &Element::new(
+            "p".to_string(),
+            [
+                ("id".to_string(), "test".to_string()),
+                ("class".to_string(), "testclass".to_string()),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
+            vec![],
+        );
+        assert_eq!(
+            (SimpleSelector::TypeSelector {
+                tag_name: "p".into()
+            })
+            .matches(e),
+            true
+        );
+        assert_eq!(
+            (SimpleSelector::TypeSelector {
+                tag_name: "invalid".into(),
+            })
+            .matches(e),
+            false
+        );
     }
 }
