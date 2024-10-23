@@ -69,6 +69,15 @@ impl SimpleSelector {
                 NodeType::Element(ref e) => e.tag_name.as_str() == tag_name,
                 _ => false,
             },
+            SimpleSelector::AttributeSelector {
+                tag_name,
+                op,
+                attribute,
+                value,
+            } => match n.node_type {
+                NodeType::Element(ref e) => e.tag_name.as_str() == tag_name,
+                _ => false,
+            },
             _ => false,
         }
     }
@@ -480,6 +489,32 @@ mod tests {
             })
             .matches(e),
             false
+        );
+    }
+
+    #[test]
+    fn test_attribute_selector_behaviour() {
+        let e = &Element::new(
+            "p".to_string(),
+            [
+                ("id".to_string(), "test".to_string()),
+                ("class".to_string(), "testclass".to_string()),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
+            vec![],
+        );
+
+        assert_eq!(
+            (SimpleSelector::AttributeSelector {
+                tag_name: "p".into(),
+                attribute: "id".into(),
+                value: "test".into(),
+                op: AttributeSelectorOp::Eq,
+            })
+            .matches(e),
+            true
         );
     }
 }
