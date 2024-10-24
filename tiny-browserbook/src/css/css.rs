@@ -75,7 +75,22 @@ impl SimpleSelector {
                 attribute,
                 value,
             } => match n.node_type {
-                NodeType::Element(ref e) => e.tag_name.as_str() == tag_name,
+                NodeType::Element(ref e) => {
+                    e.tag_name.as_str() == tag_name
+                        && match op {
+                            AttributeSelectorOp::Eq => e.attributes.get(attribute) == Some(value),
+                            AttributeSelectorOp::Contain => e
+                                .attributes
+                                .get(attribute)
+                                .map(|value| {
+                                    value
+                                        .split_ascii_whitespace()
+                                        .find(|v| v == value)
+                                        .is_some()
+                                })
+                                .unwrap_or(false),
+                        }
+                }
                 _ => false,
             },
             _ => false,
@@ -515,6 +530,17 @@ mod tests {
             })
             .matches(e),
             true
+        );
+
+        assert_eq!(
+            (SimpleSelector::AttributeSelector {
+                tag_name: "p".into(),
+                attribute: "id".into(),
+                value: "invalid".into(),
+                op: AttributeSelectorOp::Eq,
+            })
+            .matches(e),
+            false
         );
     }
 }
