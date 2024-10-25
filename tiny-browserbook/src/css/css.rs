@@ -542,5 +542,27 @@ mod tests {
             .matches(e),
             false
         );
+
+        assert_eq!(
+            (SimpleSelector::AttributeSelector {
+                tag_name: "p".into(),
+                attribute: "invalid".into(),
+                value: "test".into(),
+                op: AttributeSelectorOp::Eq,
+            })
+            .matches(e),
+            false
+        );
+
+        assert_eq!(
+            (SimpleSelector::AttributeSelector {
+                tag_name: "invalid".into(),
+                attribute: "id".into(),
+                value: "test".into(),
+                op: AttributeSelectorOp::Eq,
+            })
+            .matches(e),
+            false
+        );
     }
 }
