@@ -93,8 +93,10 @@ impl SimpleSelector {
                 }
                 _ => false,
             },
-            SimpleSelector::ClassSelector { class_name } => true,
-            _ => false,
+            SimpleSelector::ClassSelector { class_name } => match n.node_type {
+                NodeType::Element(ref e) => e.attributes.get("class") == Some(class_name),
+                _ => false,
+            },
         }
     }
 }
@@ -255,7 +257,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::iter;
 
     use crate::html::dom::Element;
 
@@ -589,6 +590,14 @@ mod tests {
             })
             .matches(e),
             true
-        )
+        );
+
+        assert_eq!(
+            (SimpleSelector::ClassSelector {
+                class_name: "invalid".into(),
+            })
+            .matches(e),
+            false
+        );
     }
 }
