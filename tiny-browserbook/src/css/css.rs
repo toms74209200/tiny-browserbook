@@ -93,6 +93,7 @@ impl SimpleSelector {
                 }
                 _ => false,
             },
+            SimpleSelector::ClassSelector { class_name } => true,
             _ => false,
         }
     }
@@ -254,6 +255,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::iter;
+
     use crate::html::dom::Element;
 
     use super::*;
@@ -564,5 +567,28 @@ mod tests {
             .matches(e),
             false
         );
+    }
+
+    #[test]
+    fn test_class_selector_behaviour() {
+        let e = &Element::new(
+            "p".to_string(),
+            [
+                ("id".to_string(), "test".to_string()),
+                ("class".to_string(), "testclass".to_string()),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
+            vec![],
+        );
+
+        assert_eq!(
+            (SimpleSelector::ClassSelector {
+                class_name: "testclass".into()
+            })
+            .matches(e),
+            true
+        )
     }
 }
