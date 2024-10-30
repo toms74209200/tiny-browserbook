@@ -28,7 +28,8 @@ pub fn to_styled_node<'a>(node: &'a Box<Node>, stylesheet: &Stylesheet) -> Optio
 
 #[cfg(test)]
 mod tests {
-    use std::vec;
+
+    use rstest::rstest;
 
     use crate::{
         css::css::{Declaration, Rule, SimpleSelector},
@@ -37,8 +38,24 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_to_styled_node_single() {
+    #[rstest]
+    #[case(
+        Stylesheet::new(vec![Rule {
+        selectors: vec![SimpleSelector::UniversalSelector],
+        declarations: vec![Declaration {
+            name: "display".to_string(),
+            value: CSSValue::Keyword("block".to_string()),
+        }],
+        }]),
+        vec![(
+            "display".to_string(),
+            CSSValue::Keyword("block".to_string()),
+        )]
+    )]
+    fn test_to_styled_node_single(
+        #[case] stylesheet: Stylesheet,
+        #[case] properties: Vec<(String, CSSValue)>,
+    ) {
         let e = &Element::new(
             "p".to_string(),
             [("id".to_string(), "test".to_string())]
@@ -47,17 +64,6 @@ mod tests {
                 .collect(),
             vec![],
         );
-        let stylesheet = Stylesheet::new(vec![Rule {
-            selectors: vec![SimpleSelector::UniversalSelector],
-            declarations: vec![Declaration {
-                name: "display".to_string(),
-                value: CSSValue::Keyword("block".to_string()),
-            }],
-        }]);
-        let properties = vec![(
-            "display".to_string(),
-            CSSValue::Keyword("block".to_string()),
-        )];
 
         assert_eq!(
             to_styled_node(e, &stylesheet),
