@@ -13,16 +13,21 @@ pub struct StyledNode<'a> {
 }
 
 pub fn to_styled_node<'a>(node: &'a Box<Node>, stylesheet: &Stylesheet) -> Option<StyledNode<'a>> {
+    let properties: HashMap<String, CSSValue> = stylesheet
+        .rules
+        .iter()
+        .filter(|rule| rule.matches(node))
+        .flat_map(|rule| {
+            rule.declarations
+                .iter()
+                .map(|declaration| (declaration.name.clone(), declaration.value.clone()))
+        })
+        .collect();
+
     Some(StyledNode {
         node_type: &node.node_type,
         children: vec![],
-        properties: vec![(
-            "display".to_string(),
-            CSSValue::Keyword("block".to_string()),
-        )]
-        .iter()
-        .cloned()
-        .collect(),
+        properties,
     })
 }
 
@@ -51,6 +56,18 @@ mod tests {
             "display".to_string(),
             CSSValue::Keyword("block".to_string()),
         )]
+    )]
+    #[case(
+        Stylesheet::new(vec![Rule {
+            selectors: vec![SimpleSelector::TypeSelector {
+                tag_name: "div".into(),
+            }],
+            declarations: vec![Declaration {
+                name: "display".to_string(),
+                value: CSSValue::Keyword("block".to_string()),
+            }],
+        }]),
+        vec![]
     )]
     fn test_to_styled_node_single(
         #[case] stylesheet: Stylesheet,
