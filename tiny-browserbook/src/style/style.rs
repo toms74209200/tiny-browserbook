@@ -37,7 +37,7 @@ mod tests {
     use rstest::rstest;
 
     use crate::{
-        css::css::{Declaration, Rule, SimpleSelector},
+        css::css::{AttributeSelectorOp, Declaration, Rule, SimpleSelector},
         html::dom::Element,
     };
 
@@ -68,6 +68,126 @@ mod tests {
             }],
         }]),
         vec![]
+    )]
+    #[case(
+        Stylesheet::new(vec![
+            Rule {
+                selectors: vec![SimpleSelector::UniversalSelector],
+                declarations: vec![Declaration {
+                    name: "display".to_string(),
+                    value: CSSValue::Keyword("block".into()),
+                }],
+            },
+            Rule {
+                selectors: vec![SimpleSelector::TypeSelector {
+                    tag_name: "div".into(),
+                }],
+                declarations: vec![Declaration {
+                    name: "display".into(),
+                    value: CSSValue::Keyword("inline".into()),
+                }],
+            },
+        ]),
+        vec![(
+            "display".to_string(),
+            CSSValue::Keyword("block".to_string()),
+        )]
+    )]
+    #[case(
+        Stylesheet::new(vec![
+            Rule {
+                selectors: vec![SimpleSelector::UniversalSelector],
+                declarations: vec![Declaration {
+                    name: "display".to_string(),
+                    value: CSSValue::Keyword("block".into()),
+                }],
+            },
+            Rule {
+                selectors: vec![SimpleSelector::TypeSelector {
+                    tag_name: "p".into(),
+                }],
+                declarations: vec![
+                    Declaration {
+                        name: "display".into(),
+                        value: CSSValue::Keyword("inline".into()),
+                    },
+                    Declaration {
+                        name: "testname".into(),
+                        value: CSSValue::Keyword("testvalue".into()),
+                    },
+                ],
+            },
+        ]),
+        vec![
+            (
+                "display".to_string(),
+                CSSValue::Keyword("inline".to_string()),
+            ),
+            (
+                "testname".to_string(),
+                CSSValue::Keyword("testvalue".to_string()),
+            ),
+        ]
+    )]
+    #[case(
+        Stylesheet::new(vec![
+            Rule {
+                selectors: vec![SimpleSelector::UniversalSelector],
+                declarations: vec![Declaration {
+                    name: "display".to_string(),
+                    value: CSSValue::Keyword("block".into()),
+                }],
+            },
+            Rule {
+                selectors: vec![SimpleSelector::AttributeSelector {
+                    tag_name: "p".into(),
+                    op: AttributeSelectorOp::Eq,
+                    attribute: "id".into(),
+                    value: "hello".into(),
+                }],
+                declarations: vec![Declaration {
+                    name: "testname".into(),
+                    value: CSSValue::Keyword("testvalue".into()),
+                }],
+            },
+        ]),
+        vec![(
+            "display".to_string(),
+            CSSValue::Keyword("block".to_string()),
+        )]
+    )]
+    #[case(
+        Stylesheet::new(vec![
+            Rule {
+                selectors: vec![SimpleSelector::UniversalSelector],
+                declarations: vec![Declaration {
+                    name: "display".to_string(),
+                    value: CSSValue::Keyword("block".into()),
+                }],
+            },
+            Rule {
+                selectors: vec![SimpleSelector::AttributeSelector {
+                    tag_name: "p".into(),
+                    op: AttributeSelectorOp::Eq,
+                    attribute: "id".into(),
+                    value: "test".into(),
+                }],
+                declarations: vec![Declaration {
+                    name: "testname".into(),
+                    value: CSSValue::Keyword("testvalue".into()),
+                }],
+            },
+        ]),
+        vec![
+            (
+                "display".to_string(),
+                CSSValue::Keyword("block".to_string()),
+            ),
+            (
+                "testname".to_string(),
+                CSSValue::Keyword("testvalue".to_string()),
+            ),
+        ]
     )]
     fn test_to_styled_node_single(
         #[case] stylesheet: Stylesheet,
