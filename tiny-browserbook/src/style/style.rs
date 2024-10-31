@@ -24,9 +24,15 @@ pub fn to_styled_node<'a>(node: &'a Box<Node>, stylesheet: &Stylesheet) -> Optio
         })
         .collect();
 
+    let children = node
+        .children
+        .iter()
+        .filter_map(|x| to_styled_node(x, stylesheet))
+        .collect();
+
     Some(StyledNode {
         node_type: &node.node_type,
-        children: vec![],
+        children,
         properties,
     })
 }
@@ -210,5 +216,80 @@ mod tests {
                 children: vec![],
             })
         )
+    }
+
+    #[rstest]
+    #[case(
+        Stylesheet::new(vec![Rule {
+            selectors: vec![SimpleSelector::UniversalSelector],
+            declarations: vec![Declaration {
+                name: "display".to_string(),
+                value: CSSValue::Keyword("block".to_string()),
+            }],
+        }]),
+        vec![(
+            "display".to_string(),
+            CSSValue::Keyword("block".to_string()),
+        )]
+    )]
+    #[case(
+        Stylesheet::new(vec![Rule {
+            selectors: vec![SimpleSelector::TypeSelector {
+                tag_name: "p".into(),
+            }],
+            declarations: vec![Declaration {
+                name: "display".to_string(),
+                value: CSSValue::Keyword("block".to_string()),
+            }],
+        }]),
+        vec![]
+    )]
+    fn test_to_styled_node_nested(
+        #[case] stylesheet: Stylesheet,
+        #[case] properties: Vec<(String, CSSValue)>,
+    ) {
+        let parent = &Element::new(
+            "div".to_string(),
+            [("id".to_string(), "test".to_string())]
+                .iter()
+                .cloned()
+                .collect(),
+            vec![Element::new(
+                "p".to_string(),
+                [("id".to_string(), "test".to_string())]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                vec![],
+            )],
+        );
+        let child_node_type = Element::new(
+            "p".to_string(),
+            [("id".to_string(), "test".to_string())]
+                .iter()
+                .cloned()
+                .collect(),
+            vec![],
+        )
+        .node_type;
+
+        assert_eq!(
+            to_styled_node(parent, &stylesheet),
+            Some(StyledNode {
+                node_type: &parent.node_type,
+                properties: properties.iter().cloned().collect(),
+                children: vec![StyledNode {
+                    node_type: &child_node_type,
+                    properties: [(
+                        "display".to_string(),
+                        CSSValue::Keyword("block".to_string()),
+                    )]
+                    .iter()
+                    .cloned()
+                    .collect(),
+                    children: vec![],
+                }],
+            })
+        );
     }
 }
