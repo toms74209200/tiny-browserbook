@@ -23,6 +23,9 @@ pub fn to_styled_node<'a>(node: &'a Box<Node>, stylesheet: &Stylesheet) -> Optio
                 .map(|declaration| (declaration.name.clone(), declaration.value.clone()))
         })
         .collect();
+    if properties.get("display") == Some(&CSSValue::Keyword("none".to_string())) {
+        return None;
+    }
 
     let children = node
         .children
@@ -291,5 +294,29 @@ mod tests {
                 }],
             })
         );
+    }
+
+    #[test]
+    fn test_to_styled_node_nested_single() {
+        let parent = &Element::new(
+            "div".to_string(),
+            [("id".to_string(), "test".to_string())]
+                .iter()
+                .cloned()
+                .collect(),
+            vec![],
+        );
+
+        let stylesheet = Stylesheet::new(vec![Rule {
+            selectors: vec![SimpleSelector::TypeSelector {
+                tag_name: "div".into(),
+            }],
+            declarations: vec![Declaration {
+                name: "display".to_string(),
+                value: CSSValue::Keyword("none".to_string()),
+            }],
+        }]);
+
+        assert_eq!(to_styled_node(parent, &stylesheet), None);
     }
 }
