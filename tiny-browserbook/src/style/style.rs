@@ -6,6 +6,13 @@ use crate::{
 };
 
 #[derive(Debug, PartialEq)]
+pub enum Display {
+    Inline,
+    Block,
+    None,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct StyledNode<'a> {
     pub node_type: &'a NodeType,
     pub children: Vec<StyledNode<'a>>,
@@ -38,6 +45,19 @@ pub fn to_styled_node<'a>(node: &'a Box<Node>, stylesheet: &Stylesheet) -> Optio
         children,
         properties,
     })
+}
+
+impl<'a> StyledNode<'a> {
+    pub fn display(&self) -> Display {
+        match self.properties.get("display") {
+            Some(CSSValue::Keyword(s)) => match s.as_str() {
+                "block" => Display::Block,
+                "none" => Display::None,
+                _ => Display::Inline,
+            },
+            _ => Display::Inline,
+        }
+    }
 }
 
 #[cfg(test)]
