@@ -8,6 +8,34 @@ pub struct Node {
     pub children: Vec<Box<Node>>,
 }
 
+impl Node {
+    /// Get the inner text of the node
+    /// # Example
+    /// ```
+    /// use tiny_browserbook::html::dom::{AttrMap, Node, NodeType, Text};
+    /// let node = Node {
+    ///    node_type: NodeType::Element(Element {
+    ///        tag_name: "p".to_string(),
+    ///        attributes: AttrMap::new(),
+    ///    }),
+    ///    children: vec![Text::new("hello world".to_string())],
+    /// };
+    /// assert_eq!(node.inner_text(), "hello world");
+    /// ```
+    pub fn inner_text(&self) -> String {
+        self.children
+            .iter()
+            .clone()
+            .into_iter()
+            .map(|node| match &node.node_type {
+                NodeType::Text(t) => t.data.clone(),
+                _ => node.inner_text(),
+            })
+            .collect::<Vec<_>>()
+            .join("")
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum NodeType {
     Element(Element),
