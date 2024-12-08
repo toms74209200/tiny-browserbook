@@ -12,7 +12,7 @@ impl Node {
     /// Get the inner text of the node
     /// # Example
     /// ```
-    /// use tiny_browserbook::html::dom::{AttrMap, Node, NodeType, Text};
+    /// use tiny_browserbook::html::dom::{AttrMap, Element, Node, NodeType, Text};
     /// let node = Node {
     ///    node_type: NodeType::Element(Element {
     ///        tag_name: "p".to_string(),

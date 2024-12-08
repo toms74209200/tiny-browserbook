@@ -17,12 +17,22 @@ use combine::satisfy;
 use combine::sep_by;
 use combine::{many1, Parser, Stream};
 
+fn whitespaces<Input>() -> impl Parser<Input, Output = String>
+where
+    Input: Stream<Token = char>,
+    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
+{
+    many::<String, _, _>(space().or(newline()))
+}
+
 fn nodes_<Input>() -> impl Parser<Input, Output = Vec<Box<Node>>>
 where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    attempt(many(choice((attempt(element()), attempt(text())))))
+    attempt(many(
+        choice((attempt(element()), attempt(text()))).skip(whitespaces()),
+    ))
 }
 
 fn text<Input>() -> impl Parser<Input, Output = Box<Node>>
@@ -38,8 +48,12 @@ where
     Input: Stream<Token = char>,
     Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
 {
-    (open_tag(), nodes(), close_tag()).and_then(
-        |((open_tag_name, attributes), children, close_tag_name)| {
+    (
+        open_tag().skip(whitespaces()),
+        nodes().skip(whitespaces()),
+        close_tag(),
+    )
+        .and_then(|((open_tag_name, attributes), children, close_tag_name)| {
             if open_tag_name == close_tag_name {
                 Ok(Element::new(open_tag_name, attributes, children))
             } else {
@@ -51,8 +65,7 @@ where
                     "tag name of open tag and close tag mismatched",
                 ))
             }
-        },
-    )
+        })
 }
 
 fn attribute<Input>() -> impl Parser<Input, Output = (String, String)>

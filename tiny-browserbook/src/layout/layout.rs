@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::html::dom::{Element, NodeType};
+use crate::html::dom::NodeType;
 use crate::style::style::Display;
 use crate::{css::css::CSSValue, style::style::StyledNode};
 
@@ -73,6 +73,7 @@ pub fn to_layout_box<'a>(snode: StyledNode<'a>) -> LayoutBox<'a> {
 mod tests {
 
     use super::*;
+    use crate::html::dom::{Element, NodeType};
 
     #[test]
     fn test_to_layout_box() {
