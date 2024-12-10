@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 combine = "4.6.7"
 cursive = "0.21.1"
+v8 = "130.0.2"
 
 [dev-dependencies]
 rstest = "0.23.0"
