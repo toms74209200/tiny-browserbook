@@ -1,8 +1,8 @@
 use std::{cell::RefCell, rc::Rc, sync::Once};
 
 use v8::{
-    new_default_platform, Context, CreateParams, EscapableHandleScope, Global, HandleScope,
-    Isolate, OwnedIsolate,
+    new_default_platform, undefined, Context, CreateParams, EscapableHandleScope, Global,
+    HandleScope, Isolate, OwnedIsolate, Script, ScriptOrigin, TryCatch,
     V8::{initialize, initialize_platform},
 };
 
@@ -37,6 +37,158 @@ impl JavascriptRuntime {
 
         JavascriptRuntime {
             v8_isolate: isolate,
+        }
+    }
+
+    pub fn execute(&mut self, filename: &str, source: &str) -> Result<String, String> {
+        let scope = &mut self.get_handle_scope();
+
+        let source = v8::String::new(scope, source).unwrap();
+        let source_map = undefined(scope);
+        let name = v8::String::new(scope, filename).unwrap();
+        let origin = ScriptOrigin::new(
+            scope,
+            name.into(),
+            0,
+            0,
+            false,
+            0,
+            Some(source_map.into()),
+            false,
+            false,
+            false,
+            None,
+        );
+
+        let mut tc_scope = TryCatch::new(scope);
+        let script = match Script::compile(&mut tc_scope, source, Some(&origin)) {
+            Some(script) => script,
+            None => {
+                assert!(tc_scope.has_caught());
+                return Err(to_pretty_string(tc_scope));
+            }
+        };
+
+        match script.run(&mut tc_scope) {
+            Some(result) => Ok(result
+                .to_string(&mut tc_scope)
+                .unwrap()
+                .to_rust_string_lossy(&mut tc_scope)),
+            None => {
+                assert!(tc_scope.has_caught());
+                Err(to_pretty_string(tc_scope))
+            }
+        }
+    }
+}
+
+impl JavascriptRuntime {
+    pub fn state(isolate: &Isolate) -> Rc<RefCell<JavascriptRuntimeState>> {
+        let s = isolate
+            .get_slot::<Rc<RefCell<JavascriptRuntimeState>>>()
+            .unwrap();
+        s.clone()
+    }
+
+    pub fn get_state(&self) -> Rc<RefCell<JavascriptRuntimeState>> {
+        Self::state(&self.v8_isolate)
+    }
+
+    pub fn get_handle_scope(&mut self) -> HandleScope {
+        let context = self.get_context();
+        HandleScope::with_context(&mut self.v8_isolate, context)
+    }
+
+    pub fn get_context(&mut self) -> Global<Context> {
+        let state = self.get_state();
+        let state = state.borrow();
+        state.context.clone()
+    }
+}
+
+fn to_pretty_string(mut try_catch: TryCatch<HandleScope>) -> String {
+    let exception_string = try_catch
+        .exception()
+        .unwrap()
+        .to_string(&mut try_catch)
+        .unwrap()
+        .to_rust_string_lossy(&mut try_catch);
+
+    let message = try_catch.message().unwrap();
+
+    let filename = message
+        .get_script_resource_name(&mut try_catch)
+        .map_or_else(
+            || "(unknown)".into(),
+            |s| {
+                s.to_string(&mut try_catch)
+                    .unwrap()
+                    .to_rust_string_lossy(&mut try_catch)
+            },
+        );
+    let line_number = message.get_line_number(&mut try_catch).unwrap_or_default();
+    format!("{}:{}: {}", filename, line_number, exception_string)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    use super::*;
+
+    static INIT: Once = Once::new();
+    static mut RUNTIME: Option<Mutex<JavascriptRuntime>> = None;
+
+    fn setup() {
+        INIT.call_once(|| {
+            unsafe { RUNTIME = Some(Mutex::new(JavascriptRuntime::new())) };
+        });
+    }
+
+    fn get_runtime() -> &'static Mutex<JavascriptRuntime> {
+        setup();
+        unsafe { RUNTIME.as_ref().unwrap() }
+    }
+
+    #[test]
+    fn test_execute_add() {
+        let runtime = get_runtime();
+        let mut runtime = runtime.lock().unwrap();
+        let result = runtime.execute("", "1 + 1");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "2");
+    }
+
+    #[test]
+    fn test_execute_add_string() {
+        let runtime = get_runtime();
+        let mut runtime = runtime.lock().unwrap();
+        let result = runtime.execute("", "'test' + \"func\" + `012${1+1+1}`");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "testfunc0123");
+    }
+
+    #[test]
+    fn test_execute_undefined() {
+        let runtime = get_runtime();
+        let mut runtime = runtime.lock().unwrap();
+        let result = runtime.execute("", "test");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_execute_lambda() {
+        let runtime = get_runtime();
+        let mut runtime = runtime.lock().unwrap();
+        {
+            let result = runtime.execute("", "let inc = (i) => { return i + 1 }; inc(1)");
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), "2");
+        }
+        {
+            let result = runtime.execute("", "inc(4)");
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), "5");
         }
     }
 }
