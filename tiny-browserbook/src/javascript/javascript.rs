@@ -132,54 +132,37 @@ fn to_pretty_string(mut try_catch: TryCatch<HandleScope>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use rstest::*;
 
     use super::*;
 
-    static INIT: Once = Once::new();
-    static mut RUNTIME: Option<Mutex<JavascriptRuntime>> = None;
-
-    fn setup() {
-        INIT.call_once(|| {
-            unsafe { RUNTIME = Some(Mutex::new(JavascriptRuntime::new())) };
-        });
+    #[fixture]
+    fn runtime() -> JavascriptRuntime {
+        JavascriptRuntime::new()
     }
 
-    fn get_runtime() -> &'static Mutex<JavascriptRuntime> {
-        setup();
-        unsafe { RUNTIME.as_ref().unwrap() }
-    }
-
-    #[test]
-    fn test_execute_add() {
-        let runtime = get_runtime();
-        let mut runtime = runtime.lock().unwrap();
+    #[rstest]
+    fn test_execute_add(mut runtime: JavascriptRuntime) {
         let result = runtime.execute("", "1 + 1");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "2");
     }
 
-    #[test]
-    fn test_execute_add_string() {
-        let runtime = get_runtime();
-        let mut runtime = runtime.lock().unwrap();
+    #[rstest]
+    fn test_execute_add_string(mut runtime: JavascriptRuntime) {
         let result = runtime.execute("", "'test' + \"func\" + `012${1+1+1}`");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "testfunc0123");
     }
 
-    #[test]
-    fn test_execute_undefined() {
-        let runtime = get_runtime();
-        let mut runtime = runtime.lock().unwrap();
+    #[rstest]
+    fn test_execute_undefined(mut runtime: JavascriptRuntime) {
         let result = runtime.execute("", "test");
         assert!(result.is_err());
     }
 
-    #[test]
-    fn test_execute_lambda() {
-        let runtime = get_runtime();
-        let mut runtime = runtime.lock().unwrap();
+    #[rstest]
+    fn test_execute_lambda(mut runtime: JavascriptRuntime) {
         {
             let result = runtime.execute("", "let inc = (i) => { return i + 1 }; inc(1)");
             assert!(result.is_ok());
