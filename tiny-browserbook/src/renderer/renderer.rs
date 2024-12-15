@@ -62,6 +62,19 @@ impl Renderer {
             js_runtime_instance: JavascriptRuntime::new(),
         }
     }
+
+    pub fn rerender(&mut self) {
+        let document_element = self.document_element.borrow();
+        let stylesheet = parse(&format!(
+            "{}\n{}",
+            DEFAULT_STYLESHEET,
+            collect_tag_inners(&document_element, "style".into()).join("\n")
+        ));
+        self.view = to_styled_node(&document_element, &stylesheet)
+            .and_then(|styled_node| Some(to_layout_box(styled_node)))
+            .and_then(|layout_box| Some(to_element_container(layout_box)))
+            .unwrap();
+    }
 }
 
 impl View for Renderer {
