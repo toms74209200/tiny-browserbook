@@ -1,11 +1,10 @@
-use std::{cell::RefCell, rc::Rc};
+use std::sync::{Arc, Mutex};
 
 use cursive::View;
 
 use crate::{
     css::css::parse,
     html::dom::{Node, NodeType},
-    javascript::javascript::JavascriptRuntime,
     layout::layout::to_layout_box,
     render::render::{to_element_container, ElementContainer},
     style::style::to_styled_node,
@@ -38,8 +37,7 @@ fn collect_tag_inners(node: &Box<Node>, tag_name: &str) -> Vec<String> {
 
 pub struct Renderer {
     view: ElementContainer,
-    document_element: Rc<RefCell<Box<Node>>>,
-    js_runtime_instance: JavascriptRuntime,
+    document_element: Arc<Mutex<Box<Node>>>,
 }
 
 impl Renderer {
@@ -55,16 +53,15 @@ impl Renderer {
             .and_then(|layout_box| Some(to_element_container(layout_box)))
             .unwrap();
 
-        let document_element = Rc::new(RefCell::new(document_element));
+        let document_element = Arc::new(Mutex::new(document_element));
         Self {
             document_element,
             view,
-            js_runtime_instance: JavascriptRuntime::new(),
         }
     }
 
     pub fn rerender(&mut self) {
-        let document_element = self.document_element.borrow();
+        let document_element = self.document_element.lock().unwrap();
         let stylesheet = parse(&format!(
             "{}\n{}",
             DEFAULT_STYLESHEET,
@@ -124,3 +121,6 @@ impl View for Renderer {
         self.view.type_name()
     }
 }
+
+unsafe impl Send for Renderer {}
+unsafe impl Sync for Renderer {}

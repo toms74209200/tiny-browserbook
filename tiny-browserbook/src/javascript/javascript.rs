@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, sync::Once};
+use std::sync::{Arc, Mutex, Once};
 
 use v8::{
     new_default_platform, undefined, Context, CreateParams, EscapableHandleScope, Global,
@@ -6,8 +6,14 @@ use v8::{
     V8::{initialize, initialize_platform},
 };
 
+use crate::html::dom::Node;
+
+use super::renderapi::RendererAPI;
+
 pub struct JavascriptRuntimeState {
-    context: Global<Context>,
+    pub context: Global<Context>,
+    pub renderer_api: Arc<RendererAPI>,
+    pub document_element: Arc<Mutex<Box<Node>>>,
 }
 
 #[derive(Debug)]
@@ -16,7 +22,7 @@ pub struct JavascriptRuntime {
 }
 
 impl JavascriptRuntime {
-    pub fn new() -> Self {
+    pub fn new(document_element: Arc<Mutex<Box<Node>>>, renderer_api: Arc<RendererAPI>) -> Self {
         static V8_INIT: Once = Once::new();
         V8_INIT.call_once(move || {
             let platform = new_default_platform(0, false).make_shared();
@@ -33,7 +39,11 @@ impl JavascriptRuntime {
             Global::new(handle_scope, context_scope)
         };
 
-        isolate.set_slot(Rc::new(RefCell::new(JavascriptRuntimeState { context })));
+        isolate.set_slot(Arc::new(Mutex::new(JavascriptRuntimeState {
+            context,
+            renderer_api,
+            document_element,
+        })));
 
         JavascriptRuntime {
             v8_isolate: isolate,
@@ -83,14 +93,46 @@ impl JavascriptRuntime {
 }
 
 impl JavascriptRuntime {
-    pub fn state(isolate: &Isolate) -> Rc<RefCell<JavascriptRuntimeState>> {
+    pub fn renderer_api(isolate: &Isolate) -> Arc<RendererAPI> {
+        let state = Self::state(isolate);
+        let state = state.lock().unwrap();
+        state.renderer_api.clone()
+    }
+
+    pub fn get_renderer_api(&mut self) -> Arc<RendererAPI> {
+        Self::renderer_api(&self.v8_isolate)
+    }
+
+    pub fn set_renderer_api(&mut self, renderer_api: Arc<RendererAPI>) {
+        self.get_state().lock().unwrap().renderer_api = renderer_api;
+    }
+}
+
+impl JavascriptRuntime {
+    pub fn document_element(isolate: &Isolate) -> Arc<Mutex<Box<Node>>> {
+        let state = Self::state(isolate);
+        let state = state.lock().unwrap();
+        state.document_element.clone()
+    }
+
+    pub fn get_document_element(&mut self) -> Arc<Mutex<Box<Node>>> {
+        Self::document_element(&self.v8_isolate)
+    }
+
+    pub fn set_document_element(&mut self, document_element: Arc<Mutex<Box<Node>>>) {
+        self.get_state().lock().unwrap().document_element = document_element;
+    }
+}
+
+impl JavascriptRuntime {
+    pub fn state(isolate: &Isolate) -> Arc<Mutex<JavascriptRuntimeState>> {
         let s = isolate
-            .get_slot::<Rc<RefCell<JavascriptRuntimeState>>>()
+            .get_slot::<Arc<Mutex<JavascriptRuntimeState>>>()
             .unwrap();
         s.clone()
     }
 
-    pub fn get_state(&self) -> Rc<RefCell<JavascriptRuntimeState>> {
+    pub fn get_state(&self) -> Arc<Mutex<JavascriptRuntimeState>> {
         Self::state(&self.v8_isolate)
     }
 
@@ -101,7 +143,7 @@ impl JavascriptRuntime {
 
     pub fn get_context(&mut self) -> Global<Context> {
         let state = self.get_state();
-        let state = state.borrow();
+        let state = state.lock().unwrap();
         state.context.clone()
     }
 }
@@ -132,13 +174,22 @@ fn to_pretty_string(mut try_catch: TryCatch<HandleScope>) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
+    use cursive::reexports::crossbeam_channel;
     use rstest::*;
+
+    use crate::html::html::parse;
 
     use super::*;
 
     #[fixture]
     fn runtime() -> JavascriptRuntime {
-        JavascriptRuntime::new()
+        let (cb_sink, _cb_recv) = crossbeam_channel::unbounded();
+        JavascriptRuntime::new(
+            Arc::new(Mutex::new(parse(r#""#))),
+            Arc::new(RendererAPI::new(Rc::new(cb_sink))),
+        )
     }
 
     #[rstest]
