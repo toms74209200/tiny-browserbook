@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use tiny_browserbook::{
     css::css,
     html::{
@@ -6,6 +8,7 @@ use tiny_browserbook::{
     },
     layout::layout::to_layout_box,
     render::render::to_element_container,
+    renderer::renderer::Renderer,
     style::style::to_styled_node,
 };
 
@@ -22,6 +25,13 @@ const HTML: &str = r#"<body>
             display: inline;
         }
     </style>
+
+    <div id="result">
+        <p>not loaded</p>
+    </div
+    <script>
+        document.getElementById("result").innerHTML = `\x3cp\x3eloaded\x3c/p\x3e`
+    </script> 
 </body>"#;
 
 const DEFAULT_STYLESHEET: &str = r#"
@@ -64,6 +74,10 @@ fn main() {
     if let Some(c) = container {
         siv.add_fullscreen_layer(c);
     }
+
+    let mut renderer = Renderer::new(Rc::new(siv.cb_sink().clone()), node);
+    renderer.execute_inline_scripts();
+    siv.add_fullscreen_layer(renderer);
 
     siv.run();
 }
